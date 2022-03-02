@@ -83,13 +83,13 @@ set_repo_list () {
               ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}/multi-tenancy-gitops-infra,multi-tenancy-gitops-infra,gitops-1-infra \
               ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}/multi-tenancy-gitops-services,multi-tenancy-gitops-services,gitops-2-services"
     if [[ "${CP_EXAMPLES}" == "true" ]]; then
-        GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_BASEURL}/${GIT_SRC_ORG}-demos/multi-tenancy-gitops-apps,multi-tenancy-gitops-apps,gitops-3-apps"
+        GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}-demos/multi-tenancy-gitops-apps,multi-tenancy-gitops-apps,gitops-3-apps"
 
         if [[ "${ACE_SCENARIO}" == "true" ]]; then
-          GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_BASEURL}/${GIT_SRC_ORG}/ace-customer-details,ace-customer-details,src-ace-app-customer-details"
+          GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}/ace-customer-details,ace-customer-details,src-ace-app-customer-details"
         fi
         if [[ "${MQ_SCENARIO}" == "true" ]]; then
-          GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_BASEURL}/${GIT_SRC_ORG}/mq-infra,mq-infra,mq-infra  ${GIT_BASEURL}/${GIT_SRC_ORG}/mq-spring-app,mq-infra,mq-spring-app "
+          GITOPS_REPOS=${GITOPS_REPOS}" ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}/mq-infra,mq-infra,mq-infra  ${GIT_SRC_BASEURL}/${GIT_SRC_ORG}/mq-spring-app,mq-infra,mq-spring-app "
         fi
     fi
 }
@@ -149,6 +149,36 @@ setup_gitea () {
 
 setup_github () {
     pushd ${OUTPUT_DIR}
+    GH=$(command -v gh)
+
+    GIT_HOST=${GIT_HOST:-github.com}
+    echo  "${GIT_TOKEN}" | "${GH}" auth login --hostname "${GIT_HOST}" --with-token
+
+    IFS=" "
+    for i in ${GITOPS_REPOS}; do
+        IFS=","
+        set $i
+        set +e
+        GHREPONAME=$("${GH}" api /repos/${GIT_ORG}/$2 -q .name || true)
+        if [[ ! ${GHREPONAME} = "$2" ]]; then
+            echo "Repo not found - creating ${GIT_BASEURL}/${GIT_ORG}/$2"
+            "${GH}" repo create ${GIT_BASEURL}/${GIT_ORG}/$2 --public
+        fi
+        set -e
+        unset IFS
+    done
+
+    popd
+}
+
+setup_gitlab () {
+
+    GLAB=$(command -v glab)
+
+    GIT_HOST=${GIT_HOST:-gitlab.com}
+    "${GLAB}" auth login --hostname "${GIT_HOST}" --token "${GIT_TOKEN}"
+
+    IFS=" "
     for i in ${GITOPS_REPOS}; do
         IFS=","
         set $i
@@ -156,13 +186,11 @@ setup_github () {
         GHREPONAME=$(gh api /repos/${GIT_ORG}/$2 -q .name || true)
         if [[ ! ${GHREPONAME} = "$2" ]]; then
             echo "Repo not found - creating ${GIT_BASEURL}/${GIT_ORG}/$2"
-            gh repo create ${GIT_BASEURL}/${GIT_ORG}/$2 --public
+            "${GLAB}" repo create ${GIT_ORG}/$2 --public
         fi
         set -e
         unset IFS
     done
-
-    popd
 }
 
 clone_repos () {
@@ -579,8 +607,7 @@ if [[ "${GIT_TARGET}" == "github" ]]; then
 elif [[ "${GIT_TARGET}" == "gitea" ]]; then 
     setup_gitea
 elif [[ "${GIT_TARGET}" == "gitlab" ]]; then 
-    echo "Gitlab is not implemented yet"
-    exit 999
+    setup_gitlab
 elif [[ "${GIT_TARGET}" == "github.ibm" ]]; then 
     echo "IBM Github is not implemented yet"
     exit 999
