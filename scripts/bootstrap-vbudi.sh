@@ -183,8 +183,9 @@ setup_gitlab () {
         IFS=","
         set $i
         set +e
-        GHREPONAME=$(gh api /repos/${GIT_ORG}/$2 -q .name || true)
-        if [[ ! ${GHREPONAME} = "$2" ]]; then
+        "${GLAB}" repo view ${GIT_ORG}/$2 
+        glRC=$?
+        if [[ "${glRC}" -eq "1" ]]; then
             echo "Repo not found - creating ${GIT_BASEURL}/${GIT_ORG}/$2"
             "${GLAB}" repo create ${GIT_ORG}/$2 --public
         fi
